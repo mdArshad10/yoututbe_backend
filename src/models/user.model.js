@@ -61,6 +61,7 @@ userSchema.pre("save", async function (next) {
 // customize the method for matching the password
 // we inject the "isMatchingPassword()" in userSchema
 userSchema.methods.isMatchingPassword = async function (enteredPassword) {
+  console.log(typeof enteredPassword);
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
