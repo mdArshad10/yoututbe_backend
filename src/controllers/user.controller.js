@@ -174,8 +174,7 @@ const logoutUser = AsyncHandler(async (req, res, next) => {
 // @Access: public
 const generateRefreshTokenUser = AsyncHandler(async (req, res, next) => {
   const incomingRefToken = req.cookies?.refreshToken || req.body;
-
-  if (!incomingRefToken) throw new ErrorHandler("unauthorized user", 404);
+  if (incomingRefToken=== false) throw new ErrorHandler("unauthorized user", 404);
   try {
 
     const decode = jwt.verify(incomingRefToken, accessRefreshToken);
