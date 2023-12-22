@@ -14,7 +14,7 @@ const accessTokenExpire = process.env.ACCESS_GENERATE_TOKEN_EXPIRE;
 
 const accessRefreshToken = process.env.ACCESS_REFRESH_TOKEN;
 const accessRefreshTokenExpire =
-  process.env.ACCES_REFRESH_GENERATE_TOKEN_EXPIRE;
+  process.env.ACCESS_REFRESH_TOKEN_EXPIRE;
 
 export {
   port,

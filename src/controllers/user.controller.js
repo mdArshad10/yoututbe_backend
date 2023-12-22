@@ -3,17 +3,24 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ErrorHandler from "../utils/ErrorHandler.js";
 import { User } from "../models/user.model.js";
 import { uploadCloudinary } from "../utils/cloudinary.js";
+import jwt from "jsonwebtoken";
+import { accessRefreshToken } from "../constants.js";
 
-// generate the access and refersh token
-const generateAccessAndRefershToken = async (userId) => {
+// generate the access and refresh token
+const generateAccessAndRefreshToken = async (userId) => {
   try {
     const existUser = await User.findById(userId);
     const accessToken = await existUser.generateToken();
-    const refershToken = await existUser.refrshToken();
-    existUser.refeshToken = refershToken;
+
+    // const refreshToken = await existUser.generateRefreshToken();
+    const refToken = await existUser.generateRefreshToken();
+    
+    existUser.refreshToken = refToken;
     await existUser.save({ validateBeforeSave: false });
-    return { accessToken, refershToken };
+    console.log({ accessToken, refToken });
+    return { accessToken, refToken };
   } catch (error) {
+    console.log("error inside generateAccessAndRefreshToken function");
     throw new ErrorHandler({ error }, 404);
   }
 };
@@ -71,7 +78,7 @@ const registerUser = AsyncHandler(async (req, res, next) => {
 
   // remove the password and freshtoken
   const createdUser = await User.findById(user._id).select(
-    "-password -refeshToken"
+    "-password -refreshToken"
   );
 
   // check the user creation
@@ -108,14 +115,16 @@ const loginUser = AsyncHandler(async (req, res, next) => {
 
   if (!passwordIsMatch) throw new ErrorHandler("invalid creditenal", 409);
 
+  console.log("before the generate token ");
   // generate the access token and refersh token
-  const { accessToken, refershToken } = await generateAccessAndRefershToken(
+  const { accessToken, refToken } = await generateAccessAndRefreshToken(
     existUser._id
   );
 
-  // remove the refershtoken and password by
+  console.log("aftar the generate token ");
+  // remove the refreshtoken and password by
   const loginUserDetail = await User.findById(existUser._id).select(
-    "-password -refeshToken"
+    "-password -refreshToken"
   );
 
   // create  the cookie option and send the data
@@ -126,14 +135,82 @@ const loginUser = AsyncHandler(async (req, res, next) => {
   res
     .status(200)
     .cookie("accessToken", accessToken, options)
-    .cookie("refershToken", refershToken, options)
+    .cookie("refreshToken", refToken, options)
     .json(
       new ApiResponse(200, "your are login successfully", {
         user: loginUserDetail,
         accessToken,
-        refershToken,
+        refToken,
       })
     );
 });
 
-export { registerUser, loginUser };
+// @Desc: logout the user
+// @Method: [GET]  /api/v1/user/logout
+// @Access: private
+const logoutUser = AsyncHandler(async (req, res, next) => {
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        refreshToken: undefined,
+      },
+    },
+    { new: true }
+  );
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+  res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, "your are logout successfully", {}));
+});
+
+// @Desc: use to generate the refresh token
+// @Method: [POST]  /api/v1/user/refresh-token
+// @Access: public
+const generateRefreshTokenUser = AsyncHandler(async (req, res, next) => {
+  const incomingRefToken = req.cookies?.refreshToken || req.body;
+
+  if (!incomingRefToken) throw new ErrorHandler("unauthorized user", 404);
+  try {
+
+    const decode = jwt.verify(incomingRefToken, accessRefreshToken);
+    console.log(decode);
+
+    const user = await User.findById(decode?._id);
+    if (!user) throw new ErrorHandler("invalid refresh token", 404);
+
+    if (incomingRefToken !== user.refreshToken)
+      throw new ErrorHandler("Refresh token is invalid or expire ", 401);
+
+    const { accessToken, refToken } = generateAccessAndRefreshToken(
+      user._id
+    );
+
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    res
+      .status(200)
+      .cookie("accessToken", accessToken)
+      .cookie("refreshToken", refToken)
+      .json(
+        new ApiResponse(200, "refresh token update successfully", {
+          accessToken,
+          refToken,
+        })
+      );
+  } catch (error) {
+    throw new ErrorHandler(error.message, 404);
+  }
+});
+
+
+
+export { registerUser, loginUser, logoutUser, generateRefreshTokenUser };

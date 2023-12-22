@@ -1,6 +1,12 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import {
+  accessRefreshToken,
+  accessRefreshTokenExpire,
+  accessToken,
+  accessTokenExpire,
+} from "../constants.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -44,7 +50,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    refeshToken: {
+    refreshToken: {
       type: String,
     },
   },
@@ -61,7 +67,6 @@ userSchema.pre("save", async function (next) {
 // customize the method for matching the password
 // we inject the "isMatchingPassword()" in userSchema
 userSchema.methods.isMatchingPassword = async function (enteredPassword) {
-  console.log(typeof enteredPassword);
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
@@ -74,18 +79,18 @@ userSchema.methods.generateToken = function () {
       email: this.email,
       fullName: this.fullName,
     },
-    process.env.ACCESS_GENERATE_TOKEN,
-    { expiresIn: process.env.ACCESS_GENERATE_TOKEN_EXPIRE }
+    accessToken,
+    { expiresIn: accessTokenExpire }
   );
 };
 // create refresh token by inject the "referenceToken()"
-userSchema.methods.refrshToken = function () {
+userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     {
       _id: this._id,
     },
-    process.env.ACCESS_REFRESH_TOKEN,
-    { expiresIn: process.env.ACCESS_REFRESH_TOKEN_EXPIRE }
+    accessRefreshToken,
+    { expiresIn: accessRefreshTokenExpire }
   );
 };
 
